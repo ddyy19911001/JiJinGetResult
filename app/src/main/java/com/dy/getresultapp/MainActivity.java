@@ -1,19 +1,25 @@
 package com.dy.getresultapp;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.text.format.DateFormat;
+import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.TextView;
 
+import com.chad.library.adapter.base.BaseViewHolder;
 import com.dy.fastframework.util.HtmlStrUtils;
 import com.dy.fastframework.view.CommonMsgDialog;
 import com.google.gson.Gson;
+import com.scwang.smartrefresh.layout.help.MyQuckAdapter;
 import com.vise.xsnow.common.GsonUtil;
 import com.vise.xsnow.http.ViseHttp;
 import com.vise.xsnow.http.callback.ACallback;
@@ -26,12 +32,14 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.net.URLDecoder;
 import java.text.SimpleDateFormat;
+import java.time.temporal.UnsupportedTemporalTypeException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
 import yin.deng.normalutils.utils.MyUtils;
 import yin.deng.normalutils.utils.NoDoubleClickListener;
+import yin.deng.normalutils.view.PopuwindowUtils;
 import yin.deng.superbase.activity.LogUtils;
 
 public class MainActivity extends MyBaseActivity {
@@ -41,6 +49,8 @@ public class MainActivity extends MyBaseActivity {
     private EditText etDay;
     private TextView tvResult;
     private TextView tvData;
+    private ImageView ivNext;
+    private List<JiJingInfo> datas=new ArrayList<>();
 
     @Override
     public int setLayout() {
@@ -54,11 +64,18 @@ public class MainActivity extends MyBaseActivity {
         btCount = (Button) findViewById(R.id.bt_count);
         tvResult = (TextView) findViewById(R.id.result);
         tvData = (TextView) findViewById(R.id.tv_data);
+        ivNext = (ImageView) findViewById(R.id.iv_next);
         etDay=findViewById(R.id.et_day);
     }
 
     @Override
     public void initFirst() {
+        ivNext.setOnClickListener(new NoDoubleClickListener() {
+            @Override
+            protected void onNoDoubleClick(View v) {
+                showPop();
+            }
+        });
         btCount.setOnClickListener(new NoDoubleClickListener() {
             @Override
             protected void onNoDoubleClick(View v) {
@@ -85,7 +102,47 @@ public class MainActivity extends MyBaseActivity {
         }.start();
     }
 
-    public void getDetails(String findCode){
+    private void showPop() {
+        getLocalData();
+        if(datas.size()==0){
+            showMsgDialog("请先收藏基金后再使用此功能");
+            return;
+        }
+        final MyPopuwindowUtils popuwindowUtils=new MyPopuwindowUtils(this);
+        popuwindowUtils.createPopupLayout(R.layout.pop_root);
+        RecyclerView rc = popuwindowUtils.getContentView().findViewById(R.id.rcView);
+        LinearLayoutManager manager=new LinearLayoutManager(this);
+        manager.setOrientation(RecyclerView.VERTICAL);
+        rc.setLayoutManager(manager);
+        MyQuckAdapter<JiJingInfo> quckAdapter=new MyQuckAdapter<JiJingInfo>(R.layout.pop_item,datas,this) {
+            @Override
+            protected void convert(final BaseViewHolder helper, final JiJingInfo item) {
+                helper.setText(R.id.tv_item, item.getName()+"("+item.getCode()+")");
+                helper.getView(R.id.tv_item).setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        popuwindowUtils.dismissPop();
+                        etNum.setText(item.getCode());
+                    }
+                });
+            }
+        };
+        rc.setAdapter(quckAdapter);
+        popuwindowUtils.showPopWindow(etNum,0,0, Gravity.BOTTOM);
+    }
+
+    /**
+     * 获取本地收藏的基金对象
+     */
+    private void getLocalData() {
+       List<JiJingInfo> jiJingInfos= DbController.getInstance(this).searchAll();
+       if(jiJingInfos!=null){
+           datas.clear();
+           datas.addAll(jiJingInfos);
+       }
+    }
+
+    public void getDetails(final String findCode){
         ViseHttp.CONFIG().httpErroListener(new IBaseRequestErroLitener() {
             @Override
             public void onHttpErro(ApiException e) {
@@ -124,6 +181,7 @@ public class MainActivity extends MyBaseActivity {
                             String jzCustom = etDay.getText().toString();
                             intent.putExtra("etDay", jzCustom);
                         }
+                        intent.putExtra("code", findCode);
                         startActivity(intent);
                     }
 

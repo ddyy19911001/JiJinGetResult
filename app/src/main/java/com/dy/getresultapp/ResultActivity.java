@@ -1,5 +1,10 @@
 package com.dy.getresultapp;
 
+import android.app.AlertDialog;
+import android.content.DialogInterface;
+import android.view.View;
+import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 import com.dy.fastframework.util.HtmlStrUtils;
@@ -11,6 +16,7 @@ import java.util.Date;
 import java.util.List;
 
 import yin.deng.normalutils.utils.MyUtils;
+import yin.deng.normalutils.utils.NoDoubleClickListener;
 import yin.deng.superbase.activity.LogUtils;
 
 public class ResultActivity extends MyBaseActivity{
@@ -41,6 +47,8 @@ public class ResultActivity extends MyBaseActivity{
     private double sevenDaysPjUpSpeed;
     private String day;
     private JzDataListInfo.DataBean.LSJZListBean lastDayInfo;
+    private String code;
+    private ImageView ivCollect;
 
     @Override
     public int setLayout() {
@@ -50,6 +58,7 @@ public class ResultActivity extends MyBaseActivity{
     @Override
     public void bindViewWithId() {
         tvResult = (TextView) findViewById(R.id.tv_result);
+        ivCollect = (ImageView) findViewById(R.id.iv_collect);
 
     }
 
@@ -57,6 +66,51 @@ public class ResultActivity extends MyBaseActivity{
     public void initFirst() {
         String data=getIntent().getStringExtra("result");
         day=getIntent().getStringExtra("etDay");
+        code=getIntent().getStringExtra("code");
+        JiJingInfo jiJingInfos= DbController.getInstance(ResultActivity.this).searchByWhere(code);
+        if(jiJingInfos==null){
+            //还未收藏
+           ivCollect.setImageResource(R.mipmap.ic_collect_normal);
+        }else{
+           ivCollect.setImageResource(R.mipmap.ic_collect_selected);
+            //已收藏
+        }
+        ivCollect.setOnClickListener(new NoDoubleClickListener() {
+            @Override
+            protected void onNoDoubleClick(View v) {
+                JiJingInfo jiJingInfos= DbController.getInstance(ResultActivity.this).searchByWhere(code);
+                if(jiJingInfos==null){
+                    //还未收藏
+                    final EditText inputServer = new EditText(ResultActivity.this);
+                    AlertDialog.Builder builder = new AlertDialog.Builder(ResultActivity.this);
+                    builder.setTitle("请为该基金取一个名字").setIcon(R.mipmap.jijing).setView(inputServer)
+                            .setNegativeButton("取消", new DialogInterface.OnClickListener() {
+                                @Override
+                                public void onClick(DialogInterface dialog, int which) {
+                                    dialog.dismiss();
+                                }
+                            });
+                    builder.setPositiveButton("确定", new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialog, int which) {
+                            String mMeetName = inputServer.getText().toString();
+                            JiJingInfo jiJingInfo=new JiJingInfo();
+                            jiJingInfo.setCode(code);
+                            jiJingInfo.setName(mMeetName);
+                            dialog.dismiss();
+                            DbController.getInstance(ResultActivity.this).insert(jiJingInfo);
+                            showTs("收藏成功");
+                            ivCollect.setImageResource(R.mipmap.ic_collect_selected);
+                        }
+                    });
+                    builder.show();
+                }else{
+                    //已收藏
+                    showTs("已取消收藏");
+                    DbController.getInstance(ResultActivity.this).delete(jiJingInfos.getCode());
+                    ivCollect.setImageResource(R.mipmap.ic_collect_normal);
+                }
+            }
+        });
         nowJz=getIntent().getDoubleExtra("etJz",-1.0);
         if(data!=null){
             LogUtils.w(data);

@@ -1,5 +1,5 @@
 apply plugin: 'com.android.application'
-
+apply plugin: 'org.greenrobot.greendao'
 android {
     compileSdkVersion 29
     buildToolsVersion "29.0.2"
@@ -17,6 +17,10 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
+
+    greendao {
+        schemaVersion 1 //当前数据库版本
+    }
 }
 
 dependencies {
@@ -27,4 +31,5 @@ dependencies {
     androidTestImplementation 'androidx.test.ext:junit:1.1.1'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.2.0'
     implementation 'com.github.ddyy19911001:RxFastAppLib:1.0.3'
+    implementation 'org.greenrobot:greendao:3.2.2' // 添加库
 }
