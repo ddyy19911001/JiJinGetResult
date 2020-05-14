@@ -75,10 +75,13 @@ public class ResultActivity extends MyBaseActivity{
     private TextView tvDetails;
     private double maxUpPercentOfWeek;
     private double maxUpPercentOfTwoWeek;
+    private double maxUpPercentOfMonth;
     private double maxJzOfTwoWeek;
     private double minJzOfTwoWeek;
     private double maxJzOfWeek;
     private double minJzOfWeek;
+    private double maxJzOfMonth;
+    private double minJzOfMonth;
 
     @Override
     public int setLayout() {
@@ -95,7 +98,7 @@ public class ResultActivity extends MyBaseActivity{
         tvChange.setOnClickListener(new NoDoubleClickListener() {
             @Override
             protected void onNoDoubleClick(View v) {
-                initLineChart(nowLineType==7?14:7);
+                initLineChart(nowLineType==7?14:(nowLineType==14?30:7));
                 initLimitLine();
             }
         });
@@ -238,8 +241,10 @@ public class ResultActivity extends MyBaseActivity{
         float nowPjData=0f;
         if(nowLineType==7){
             nowPjData= (float) pjLjOfWeek;
-        }else{
+        }else if(nowLineType==14){
             nowPjData= (float) pjdwOfTwoWeek;
+        }else{
+            nowPjData= (float) pjLjOfMonth;
         }
         mLineChart.getAxisLeft().removeAllLimitLines();
         LimitLine yLimitLine = new LimitLine(nowPjData, nowLineType + "日均值：" + myformat.format(nowPjData));
@@ -300,10 +305,10 @@ public class ResultActivity extends MyBaseActivity{
         float max=0f;
         float min=Float.parseFloat(todayJzInfo.getDWJZ());
         if(type==7){
-            double canKaoSaleJz=(1+(maxUpPercentOfWeek/2+0.5)/100)*pjdwOfWeek;
-            double canKaoBuyJz=(1-(maxUpPercentOfWeek/2-0.5)/100)*pjdwOfWeek;
+            double canKaoSaleJz=(1+(maxUpPercentOfWeek/2+maxUpPercentOfWeek/4)/100)*pjdwOfWeek;
+            double canKaoBuyJz=(1-(maxUpPercentOfWeek/2-maxUpPercentOfWeek/4)/100)*pjdwOfWeek;
             String weekStr="（卖出："+myformat.format(canKaoSaleJz)+"，买入："+myformat.format(canKaoBuyJz)+")";
-            tvChange.setText("近7日数据"+weekStr+"\n"+"（振幅："+maxUpPercentOfWeek+"%，卖出："+myformat.format(maxUpPercentOfWeek/2+0.5)+"%，买入："+myformat.format(maxUpPercentOfWeek/2-0.5)+"%）");
+            tvChange.setText("近7日数据"+weekStr+"\n"+"（振幅："+maxUpPercentOfWeek+"%，卖出："+myformat.format(maxUpPercentOfWeek/2+maxUpPercentOfWeek/4)+"%，买入："+myformat.format(maxUpPercentOfWeek/2-maxUpPercentOfWeek/4)+"%）");
             for(int i=0;i<dataListWeek.size();i++){
                 float nowJz=Float.parseFloat(dataListWeek.get(i).getDWJZ());
                 if(nowJz>max){
@@ -313,13 +318,27 @@ public class ResultActivity extends MyBaseActivity{
                     min=nowJz;
                 }
             }
-        }else{
-            double canKaoSaleJz=(1+(maxUpPercentOfTwoWeek/2+0.5)/100)*pjdwOfTwoWeek;
-            double canKaoBuyJz=(1-(maxUpPercentOfTwoWeek/2-0.5)/100)*pjdwOfTwoWeek;
+        }else if(type==14){
+            double canKaoSaleJz=(1+(maxUpPercentOfTwoWeek/2+maxUpPercentOfTwoWeek/4)/100)*pjdwOfTwoWeek;
+            double canKaoBuyJz=(1-(maxUpPercentOfTwoWeek/2-maxUpPercentOfTwoWeek/4)/100)*pjdwOfTwoWeek;
             String twoWeekOfStr="（卖出："+myformat.format(canKaoSaleJz)+"，买入："+myformat.format(canKaoBuyJz)+")";
-            tvChange.setText("近14日数据"+twoWeekOfStr+"\n"+"（振幅："+maxUpPercentOfTwoWeek+"%，卖出："+myformat.format(maxUpPercentOfTwoWeek/2+0.5)+"%，买入："+myformat.format(maxUpPercentOfTwoWeek/2-0.5)+"%）");
+            tvChange.setText("近14日数据"+twoWeekOfStr+"\n"+"（振幅："+maxUpPercentOfTwoWeek+"%，卖出："+myformat.format(maxUpPercentOfTwoWeek/2+maxUpPercentOfTwoWeek/4)+"%，买入："+myformat.format(maxUpPercentOfTwoWeek/2-maxUpPercentOfTwoWeek/4)+"%）");
             for(int i=0;i<dataListTwoWeek.size();i++){
                 float nowJz=Float.parseFloat(dataListTwoWeek.get(i).getDWJZ());
+                if(nowJz>max){
+                    max=nowJz;
+                }
+                if(nowJz<min){
+                    min=nowJz;
+                }
+            }
+        }else{
+            double canKaoSaleJz=(1+(maxUpPercentOfMonth/2+maxUpPercentOfMonth/4)/100)*pjdwOfMonth;
+            double canKaoBuyJz=(1-(maxUpPercentOfMonth/2-maxUpPercentOfMonth/4)/100)*pjdwOfMonth;
+            String twoWeekOfStr="（卖出："+myformat.format(canKaoSaleJz)+"，买入："+myformat.format(canKaoBuyJz)+")";
+            tvChange.setText("近30日数据"+twoWeekOfStr+"\n"+"（振幅："+maxUpPercentOfMonth+"%，卖出："+myformat.format(maxUpPercentOfMonth/2+maxUpPercentOfMonth/4)+"%，买入："+myformat.format(maxUpPercentOfMonth/2-maxUpPercentOfMonth/4)+"%）");
+            for(int i=0;i<dataListMonth.size();i++){
+                float nowJz=Float.parseFloat(dataListMonth.get(i).getDWJZ());
                 if(nowJz>max){
                     max=nowJz;
                 }
@@ -379,7 +398,12 @@ public class ResultActivity extends MyBaseActivity{
         minJzOfWeek=Double.parseDouble(todayJzInfo.getDWJZ());
         maxJzOfTwoWeek=0;
         minJzOfTwoWeek=Double.parseDouble(todayJzInfo.getDWJZ());
+        maxJzOfMonth=0;
+        minJzOfMonth=Double.parseDouble(todayJzInfo.getDWJZ());
         for(int i=0;i<dataListWeek.size();i++){
+            if(MyUtils.isEmpty(dataListWeek.get(i).getJZZZL())){
+                continue;
+            }
             allSpeed+=Double.parseDouble(dataListWeek.get(i).getJZZZL());
             allDwJz+=Double.parseDouble(dataListWeek.get(i).getDWJZ());
             alLjJz+=Double.parseDouble(dataListWeek.get(i).getLJJZ());
@@ -394,6 +418,9 @@ public class ResultActivity extends MyBaseActivity{
         allDwJz=0;
         alLjJz=0;
         for(int i=0;i<dataListTwoWeek.size();i++){
+            if(MyUtils.isEmpty(dataListTwoWeek.get(i).getJZZZL())){
+                continue;
+            }
             allSpeed+=Double.parseDouble(dataListTwoWeek.get(i).getJZZZL());
             allDwJz+=Double.parseDouble(dataListTwoWeek.get(i).getDWJZ());
             alLjJz+=Double.parseDouble(dataListTwoWeek.get(i).getLJJZ());
@@ -429,14 +456,6 @@ public class ResultActivity extends MyBaseActivity{
         speedTwoWeek=allSpeed/dataListTwoWeek.size();
         pjdwOfTwoWeek=allDwJz/dataListTwoWeek.size();
         pjLjOfTwoWeek=alLjJz/dataListTwoWeek.size();
-
-        maxUpPercentOfWeek= new BigDecimal(Math.abs(maxJzOfWeek-minJzOfWeek)*100)
-                .divide(new BigDecimal(minJzOfWeek),2,BigDecimal.ROUND_HALF_UP)
-                .doubleValue();
-        maxUpPercentOfTwoWeek= new BigDecimal(Math.abs(maxJzOfTwoWeek-minJzOfTwoWeek)*100)
-                .divide(new BigDecimal(minJzOfTwoWeek),2,BigDecimal.ROUND_HALF_UP)
-                .doubleValue();
-
         allSpeed=0;
         allDwJz=0;
         alLjJz=0;
@@ -444,7 +463,26 @@ public class ResultActivity extends MyBaseActivity{
             allSpeed+=Double.parseDouble(dataListMonth.get(i).getJZZZL());
             allDwJz+=Double.parseDouble(dataListMonth.get(i).getDWJZ());
             alLjJz+=Double.parseDouble(dataListMonth.get(i).getLJJZ());
+            if(i<30) {
+                double nowWeekJz = Double.parseDouble(dataListMonth.get(i).getDWJZ());
+                if(nowWeekJz>=maxJzOfMonth){
+                    maxJzOfMonth=nowWeekJz;
+                }
+                if(nowWeekJz<=minJzOfMonth){
+                    minJzOfMonth=nowWeekJz;
+                }
+            }
         }
+
+        maxUpPercentOfWeek= new BigDecimal(Math.abs(maxJzOfWeek-minJzOfWeek)*100)
+                .divide(new BigDecimal(minJzOfWeek),2,BigDecimal.ROUND_HALF_UP)
+                .doubleValue();
+        maxUpPercentOfTwoWeek= new BigDecimal(Math.abs(maxJzOfTwoWeek-minJzOfTwoWeek)*100)
+                .divide(new BigDecimal(minJzOfTwoWeek),2,BigDecimal.ROUND_HALF_UP)
+                .doubleValue();
+        maxUpPercentOfMonth= new BigDecimal(Math.abs(maxJzOfMonth-minJzOfMonth)*100)
+                .divide(new BigDecimal(minJzOfMonth),2,BigDecimal.ROUND_HALF_UP)
+                .doubleValue();
         speedMonth=allSpeed/dataListMonth.size();
         pjdwOfMonth=allDwJz/dataListMonth.size();
         pjLjOfMonth=alLjJz/dataListMonth.size();
@@ -453,6 +491,9 @@ public class ResultActivity extends MyBaseActivity{
         allDwJz=0;
         alLjJz=0;
         for(int i=0;i<dataListMonthAndHalf.size();i++){
+            if(MyUtils.isEmpty(dataListMonthAndHalf.get(i).getJZZZL())){
+                continue;
+            }
             allSpeed+=Double.parseDouble(dataListMonthAndHalf.get(i).getJZZZL());
             allDwJz+=Double.parseDouble(dataListMonthAndHalf.get(i).getDWJZ());
             alLjJz+=Double.parseDouble(dataListMonthAndHalf.get(i).getLJJZ());
@@ -465,6 +506,9 @@ public class ResultActivity extends MyBaseActivity{
         allDwJz=0;
         alLjJz=0;
         for(int i=0;i<dataListThreeMonth.size();i++){
+            if(MyUtils.isEmpty(dataListThreeMonth.get(i).getJZZZL())){
+                continue;
+            }
             allSpeed+=Double.parseDouble(dataListThreeMonth.get(i).getJZZZL());
             allDwJz+=Double.parseDouble(dataListThreeMonth.get(i).getDWJZ());
             alLjJz+=Double.parseDouble(dataListThreeMonth.get(i).getLJJZ());
