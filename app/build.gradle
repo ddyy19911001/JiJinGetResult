@@ -31,5 +31,7 @@ dependencies {
     androidTestImplementation 'androidx.test.ext:junit:1.1.1'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.2.0'
     implementation 'com.github.ddyy19911001:RxFastAppLib:1.0.3'
-    implementation 'org.greenrobot:greendao:3.2.2' // 添加库
+    implementation 'org.greenrobot:greendao:3.2.2'
+    compile project(path: ':MPChartLib') // 添加库
+
 }

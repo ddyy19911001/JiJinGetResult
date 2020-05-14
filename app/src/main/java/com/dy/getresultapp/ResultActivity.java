@@ -2,14 +2,34 @@ package com.dy.getresultapp;
 
 import android.app.AlertDialog;
 import android.content.DialogInterface;
+import android.graphics.Color;
+import android.graphics.Paint;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
 
 import com.dy.fastframework.util.HtmlStrUtils;
+import com.github.mikephil.charting.charts.LineChart;
+import com.github.mikephil.charting.components.AxisBase;
+import com.github.mikephil.charting.components.LimitLine;
+import com.github.mikephil.charting.components.XAxis;
+import com.github.mikephil.charting.components.YAxis;
+import com.github.mikephil.charting.data.BarData;
+import com.github.mikephil.charting.data.BarDataSet;
+import com.github.mikephil.charting.data.BarEntry;
+import com.github.mikephil.charting.data.Entry;
+import com.github.mikephil.charting.data.LineData;
+import com.github.mikephil.charting.data.LineDataSet;
+import com.github.mikephil.charting.formatter.IAxisValueFormatter;
+import com.github.mikephil.charting.formatter.ValueFormatter;
+import com.github.mikephil.charting.highlight.Highlight;
+import com.github.mikephil.charting.interfaces.datasets.IBarDataSet;
+import com.github.mikephil.charting.interfaces.datasets.ILineDataSet;
+import com.github.mikephil.charting.listener.OnChartValueSelectedListener;
 import com.vise.xsnow.common.GsonUtil;
 
+import java.math.BigDecimal;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -49,6 +69,16 @@ public class ResultActivity extends MyBaseActivity{
     private JzDataListInfo.DataBean.LSJZListBean lastDayInfo;
     private String code;
     private ImageView ivCollect;
+    private LineChart mLineChart;
+    private TextView tvChange;
+    private int nowLineType=7;
+    private TextView tvDetails;
+    private double maxUpPercentOfWeek;
+    private double maxUpPercentOfTwoWeek;
+    private double maxJzOfTwoWeek;
+    private double minJzOfTwoWeek;
+    private double maxJzOfWeek;
+    private double minJzOfWeek;
 
     @Override
     public int setLayout() {
@@ -58,8 +88,17 @@ public class ResultActivity extends MyBaseActivity{
     @Override
     public void bindViewWithId() {
         tvResult = (TextView) findViewById(R.id.tv_result);
+        tvDetails = (TextView) findViewById(R.id.tv_details);
+        tvChange = (TextView) findViewById(R.id.tv_change);
         ivCollect = (ImageView) findViewById(R.id.iv_collect);
-
+        mLineChart = (LineChart) findViewById(R.id.mLineChar);
+        tvChange.setOnClickListener(new NoDoubleClickListener() {
+            @Override
+            protected void onNoDoubleClick(View v) {
+                initLineChart(nowLineType==7?14:7);
+                initLimitLine();
+            }
+        });
     }
 
     @Override
@@ -194,6 +233,138 @@ public class ResultActivity extends MyBaseActivity{
         dealWithAllDatas();
     }
 
+    private void initLimitLine() {
+        // 设置x轴的LimitLine
+        float nowPjData=0f;
+        if(nowLineType==7){
+            nowPjData= (float) pjLjOfWeek;
+        }else{
+            nowPjData= (float) pjdwOfTwoWeek;
+        }
+        mLineChart.getAxisLeft().removeAllLimitLines();
+        LimitLine yLimitLine = new LimitLine(nowPjData, nowLineType + "日均值：" + myformat.format(nowPjData));
+        yLimitLine.setLineColor(Color.RED);
+        yLimitLine.setTextColor(Color.RED);
+        // 获得左侧侧坐标轴
+        YAxis leftAxis = mLineChart.getAxisLeft();
+        leftAxis.addLimitLine(yLimitLine);
+        mLineChart.invalidate();
+    }
+
+    java.text.DecimalFormat myformat=new java.text.DecimalFormat("0.000");
+    private void initLineChart(int type) {
+        nowLineType=type;
+        mLineChart.setOnChartValueSelectedListener(new OnChartValueSelectedListener() {
+            @Override
+            public void onValueSelected(Entry e, Highlight h) {
+
+            }
+
+            @Override
+            public void onNothingSelected() {
+
+            }
+        });
+        mLineChart.getDescription().setEnabled(false);
+        mLineChart.setBackgroundColor(Color.WHITE);
+
+        //自定义适配器，适配于X轴
+        ValueFormatter xAxisFormatter = new ValueFormatter() {
+            @Override
+            public String getFormattedValue(float value) {
+                java.text.DecimalFormat myformat=new java.text.DecimalFormat("0");
+                return myformat.format(value);
+            }
+        };
+
+        XAxis xAxis = mLineChart.getXAxis();
+        xAxis.setPosition(XAxis.XAxisPosition.BOTTOM);
+        xAxis.setGranularity(1f);
+        xAxis.setValueFormatter(xAxisFormatter);
+
+        //自定义适配器，适配于Y轴
+        ValueFormatter yAxisFormatter = new ValueFormatter(){
+            @Override
+            public String getFormattedValue(float value) {
+                java.text.DecimalFormat myformat=new java.text.DecimalFormat("0.0000");
+                return myformat.format(value);
+            }
+
+        };
+
+        YAxis leftAxis = mLineChart.getAxisLeft();
+        leftAxis.setLabelCount(7, false);
+        leftAxis.setValueFormatter(yAxisFormatter);
+        leftAxis.setPosition(YAxis.YAxisLabelPosition.OUTSIDE_CHART);
+        leftAxis.setSpaceTop(2f);
+        float max=0f;
+        float min=Float.parseFloat(todayJzInfo.getDWJZ());
+        if(type==7){
+            double canKaoSaleJz=(1+(maxUpPercentOfWeek/2+0.5)/100)*pjdwOfWeek;
+            double canKaoBuyJz=(1-(maxUpPercentOfWeek/2-0.5)/100)*pjdwOfWeek;
+            String weekStr="（卖出："+myformat.format(canKaoSaleJz)+"，买入："+myformat.format(canKaoBuyJz)+")";
+            tvChange.setText("近7日数据"+weekStr+"\n"+"（振幅："+maxUpPercentOfWeek+"%，卖出："+myformat.format(maxUpPercentOfWeek/2+0.5)+"%，买入："+myformat.format(maxUpPercentOfWeek/2-0.5)+"%）");
+            for(int i=0;i<dataListWeek.size();i++){
+                float nowJz=Float.parseFloat(dataListWeek.get(i).getDWJZ());
+                if(nowJz>max){
+                    max=nowJz;
+                }
+                if(nowJz<min){
+                    min=nowJz;
+                }
+            }
+        }else{
+            double canKaoSaleJz=(1+(maxUpPercentOfTwoWeek/2+0.5)/100)*pjdwOfTwoWeek;
+            double canKaoBuyJz=(1-(maxUpPercentOfTwoWeek/2-0.5)/100)*pjdwOfTwoWeek;
+            String twoWeekOfStr="（卖出："+myformat.format(canKaoSaleJz)+"，买入："+myformat.format(canKaoBuyJz)+")";
+            tvChange.setText("近14日数据"+twoWeekOfStr+"\n"+"（振幅："+maxUpPercentOfTwoWeek+"%，卖出："+myformat.format(maxUpPercentOfTwoWeek/2+0.5)+"%，买入："+myformat.format(maxUpPercentOfTwoWeek/2-0.5)+"%）");
+            for(int i=0;i<dataListTwoWeek.size();i++){
+                float nowJz=Float.parseFloat(dataListTwoWeek.get(i).getDWJZ());
+                if(nowJz>max){
+                    max=nowJz;
+                }
+                if(nowJz<min){
+                    min=nowJz;
+                }
+            }
+        }
+        leftAxis.setAxisMaximum(max+0.001f);
+        leftAxis.setAxisMinimum(min-0.001f);
+
+        initLimitLine();
+        mLineChart.getAxisRight().setEnabled(false);
+        setLineChartData(type);
+    }
+
+    private void setLineChartData(int type) {
+        //填充数据，在这里换成自己的数据源
+        List<Entry> valsComp1 = new ArrayList<>();
+
+        if(type==7){
+            for(int i=0;i<dataListWeek.size();i++){
+                valsComp1.add(new Entry((i+1),Float.parseFloat(dataListWeek.get(dataListWeek.size()-1-i).getDWJZ())));
+            }
+        }else{
+            for(int i=0;i<dataListTwoWeek.size();i++){
+                valsComp1.add(new Entry((i+1),Float.parseFloat(dataListTwoWeek.get(dataListTwoWeek.size()-1-i).getDWJZ())));
+            }
+        }
+
+        //这里，每重新new一个LineDataSet，相当于重新画一组折线
+        //每一个LineDataSet相当于一组折线。比如:这里有两个LineDataSet：setComp1，setComp2。
+        //则在图像上会有两条折线图，分别表示公司1 和 公司2 的情况.还可以设置更多
+        LineDataSet setComp1 = new LineDataSet(valsComp1, "近"+type+"日基金走势");
+        setComp1.setAxisDependency(YAxis.AxisDependency.LEFT);
+        setComp1.setColor(getResources().getColor(R.color.retry_color));
+        setComp1.setDrawCircles(false);
+        setComp1.setMode(LineDataSet.Mode.HORIZONTAL_BEZIER);
+        List<ILineDataSet> dataSets = new ArrayList<>();
+        dataSets.add(setComp1);
+        LineData lineData = new LineData(dataSets);
+        mLineChart.setData(lineData);
+        mLineChart.invalidate();
+    }
+
     /**
      * 此处开始对每个时间段的净值做分析
      */
@@ -204,10 +375,10 @@ public class ResultActivity extends MyBaseActivity{
         double threedDaysAllSpeed=0;
         double sevenDaysAllSpeed=0;
         double twoWeekAllSpeed=0;
-        double maxJzOfWeek=0;
-        double minJzOfWeek=Double.parseDouble(todayJzInfo.getDWJZ());
-        double maxJzOfTwoWeek=0;
-        double minJzOfTwoWeek=Double.parseDouble(todayJzInfo.getDWJZ());
+        maxJzOfWeek=0;
+        minJzOfWeek=Double.parseDouble(todayJzInfo.getDWJZ());
+        maxJzOfTwoWeek=0;
+        minJzOfTwoWeek=Double.parseDouble(todayJzInfo.getDWJZ());
         for(int i=0;i<dataListWeek.size();i++){
             allSpeed+=Double.parseDouble(dataListWeek.get(i).getJZZZL());
             allDwJz+=Double.parseDouble(dataListWeek.get(i).getDWJZ());
@@ -259,6 +430,13 @@ public class ResultActivity extends MyBaseActivity{
         pjdwOfTwoWeek=allDwJz/dataListTwoWeek.size();
         pjLjOfTwoWeek=alLjJz/dataListTwoWeek.size();
 
+        maxUpPercentOfWeek= new BigDecimal(Math.abs(maxJzOfWeek-minJzOfWeek)*100)
+                .divide(new BigDecimal(minJzOfWeek),2,BigDecimal.ROUND_HALF_UP)
+                .doubleValue();
+        maxUpPercentOfTwoWeek= new BigDecimal(Math.abs(maxJzOfTwoWeek-minJzOfTwoWeek)*100)
+                .divide(new BigDecimal(minJzOfTwoWeek),2,BigDecimal.ROUND_HALF_UP)
+                .doubleValue();
+
         allSpeed=0;
         allDwJz=0;
         alLjJz=0;
@@ -294,6 +472,7 @@ public class ResultActivity extends MyBaseActivity{
         speedThreeMonth=allSpeed/dataListThreeMonth.size();
         pjdwOfThreeMonth=allDwJz/dataListThreeMonth.size();
         pjLjOfThreeMonth=alLjJz/dataListThreeMonth.size();
+        initLineChart(nowLineType);
         java.text.DecimalFormat myformat=new java.text.DecimalFormat("0.000");
         StringBuffer buffer=new StringBuffer();
         buffer.append("<font color='#2234F0' size='50px'>");
@@ -630,8 +809,11 @@ public class ResultActivity extends MyBaseActivity{
             result="当前建议等待时机买入，当前可卖出仓位："+Math.abs(saleCang/2)+"层";
         }
         buffer.append("<br><font color='#000000' size='90px'>操作建议：</font><br><br><font color='#24a233' size='50px' >"+msDetails+"<br><br>"+result+"</font><br><br>");
-        buffer.append(details);
+        buffer.append(result);
         tvResult.setText(HtmlStrUtils.getHtmlStr(this, tvResult, buffer.toString()));
+        tvDetails.setText(HtmlStrUtils.getHtmlStr(this,tvDetails,details));
     }
+
+
 
 }

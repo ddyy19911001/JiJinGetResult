@@ -37,13 +37,44 @@
         android:scrollbars="none"
         android:overScrollMode="never"
         >
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            >
         <TextView
             android:id="@+id/tv_result"
             android:textSize="16sp"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
+            android:layout_height="wrap_content"
             android:textColor="@color/black"
             android:padding="20dp"
             />
+            <TextView
+                android:id="@+id/tv_change"
+                android:textColor="@color/select_color"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:layout_gravity="center_horizontal"
+                android:lineSpacingExtra="5dp"
+                android:text="查看14日情况\n(最大振幅)"
+                />
+        <com.github.mikephil.charting.charts.LineChart
+            android:id="@+id/mLineChar"
+            android:layout_marginLeft="20dp"
+            android:layout_marginRight="20dp"
+            android:layout_width="match_parent"
+            android:layout_height="200dp"
+            />
+            <TextView
+                android:id="@+id/tv_details"
+                android:textSize="16sp"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="@color/black"
+                android:padding="20dp"
+                />
+        </LinearLayout>
     </ScrollView>
 </LinearLayout>
