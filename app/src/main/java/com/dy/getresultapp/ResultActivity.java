@@ -3,7 +3,6 @@ package com.dy.getresultapp;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.graphics.Color;
-import android.graphics.Paint;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.ImageView;
@@ -11,20 +10,14 @@ import android.widget.TextView;
 
 import com.dy.fastframework.util.HtmlStrUtils;
 import com.github.mikephil.charting.charts.LineChart;
-import com.github.mikephil.charting.components.AxisBase;
 import com.github.mikephil.charting.components.LimitLine;
 import com.github.mikephil.charting.components.XAxis;
 import com.github.mikephil.charting.components.YAxis;
-import com.github.mikephil.charting.data.BarData;
-import com.github.mikephil.charting.data.BarDataSet;
-import com.github.mikephil.charting.data.BarEntry;
 import com.github.mikephil.charting.data.Entry;
 import com.github.mikephil.charting.data.LineData;
 import com.github.mikephil.charting.data.LineDataSet;
-import com.github.mikephil.charting.formatter.IAxisValueFormatter;
 import com.github.mikephil.charting.formatter.ValueFormatter;
 import com.github.mikephil.charting.highlight.Highlight;
-import com.github.mikephil.charting.interfaces.datasets.IBarDataSet;
 import com.github.mikephil.charting.interfaces.datasets.ILineDataSet;
 import com.github.mikephil.charting.listener.OnChartValueSelectedListener;
 import com.vise.xsnow.common.GsonUtil;
@@ -32,6 +25,7 @@ import com.vise.xsnow.common.GsonUtil;
 import java.math.BigDecimal;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Date;
 import java.util.List;
 
@@ -82,6 +76,21 @@ public class ResultActivity extends MyBaseActivity{
     private double minJzOfWeek;
     private double maxJzOfMonth;
     private double minJzOfMonth;
+    private double lowAndAddedMoney=100;
+    private double upAndAddMoney =0;
+    private double createStockMoney=2000;
+    private double tEarnedMoney;
+    private List<AddedMoneyInfo> tDaysAddedMoney=new ArrayList<>();
+    private double todayNeedAdd;
+    private double leavePercent=0.6;//剩余仓位百分数
+    private double getMoneyPercent=3;
+    private double sevenDaysHasCounts;
+    private double twoWeeksHasCounts;
+    private double monthHasCounts;
+    private double threeMonthHasCounts;
+    private TextView tvChangeGetMoneyPercent;
+    private JzDataListInfo jzDataListInfo;
+    private double tAddedAllMoney;
 
     @Override
     public int setLayout() {
@@ -93,6 +102,7 @@ public class ResultActivity extends MyBaseActivity{
         tvResult = (TextView) findViewById(R.id.tv_result);
         tvDetails = (TextView) findViewById(R.id.tv_details);
         tvChange = (TextView) findViewById(R.id.tv_change);
+        tvChangeGetMoneyPercent = (TextView) findViewById(R.id.change_get_moneyPercent);
         ivCollect = (ImageView) findViewById(R.id.iv_collect);
         mLineChart = (LineChart) findViewById(R.id.mLineChar);
         tvChange.setOnClickListener(new NoDoubleClickListener() {
@@ -102,6 +112,19 @@ public class ResultActivity extends MyBaseActivity{
                 initLimitLine();
             }
         });
+        tvChangeGetMoneyPercent.setOnClickListener(new NoDoubleClickListener() {
+            @Override
+            protected void onNoDoubleClick(View v) {
+                if(getMoneyPercent<=4) {
+                    getMoneyPercent += 0.5;
+                }else{
+                    getMoneyPercent=2;
+                }
+                tvChangeGetMoneyPercent.setText("预测结果："+getMoneyPercent);
+                count(jzDataListInfo);
+            }
+        });
+        tvChangeGetMoneyPercent.setText("预测结果："+getMoneyPercent);
     }
 
     @Override
@@ -156,7 +179,7 @@ public class ResultActivity extends MyBaseActivity{
         nowJz=getIntent().getDoubleExtra("etJz",-1.0);
         if(data!=null){
             LogUtils.w(data);
-            JzDataListInfo jzDataListInfo= GsonUtil.gson().fromJson(data, JzDataListInfo.class);
+            jzDataListInfo= GsonUtil.gson().fromJson(data, JzDataListInfo.class);
             LogUtils.d("净值数据获取成功："+jzDataListInfo);
             count(jzDataListInfo);
         }
@@ -198,6 +221,15 @@ public class ResultActivity extends MyBaseActivity{
         }
         todayJzInfo = listBeans.get(0);
         lastDayInfo = listBeans.get(1);
+        double zzl = Double.parseDouble(todayJzInfo.getJZZZL());
+        if(zzl<0){
+            todayNeedAdd=Math.abs(lowAndAddedMoney*(zzl/0.1));
+        }else{
+            todayNeedAdd= upAndAddMoney *(1-zzl);
+            if(todayNeedAdd<=0){
+                todayNeedAdd=0;
+            }
+        }
         dataListWeek = new ArrayList<>();//最近7天的净值数据集合
         dataListTwoWeek = new ArrayList<>();//最近30天的净值数据集合
         dataListMonth = new ArrayList<>();//最近30天的净值数据集合
@@ -240,11 +272,11 @@ public class ResultActivity extends MyBaseActivity{
         // 设置x轴的LimitLine
         float nowPjData=0f;
         if(nowLineType==7){
-            nowPjData= (float) pjLjOfWeek;
+            nowPjData= (float) pjdwOfWeek;
         }else if(nowLineType==14){
             nowPjData= (float) pjdwOfTwoWeek;
         }else{
-            nowPjData= (float) pjLjOfMonth;
+            nowPjData= (float) pjdwOfMonth;
         }
         mLineChart.getAxisLeft().removeAllLimitLines();
         LimitLine yLimitLine = new LimitLine(nowPjData, nowLineType + "日均值：" + myformat.format(nowPjData));
@@ -363,9 +395,13 @@ public class ResultActivity extends MyBaseActivity{
             for(int i=0;i<dataListWeek.size();i++){
                 valsComp1.add(new Entry((i+1),Float.parseFloat(dataListWeek.get(dataListWeek.size()-1-i).getDWJZ())));
             }
-        }else{
+        }else if(type==14){
             for(int i=0;i<dataListTwoWeek.size();i++){
                 valsComp1.add(new Entry((i+1),Float.parseFloat(dataListTwoWeek.get(dataListTwoWeek.size()-1-i).getDWJZ())));
+            }
+        }else{
+            for(int i=0;i<dataListMonth.size();i++){
+                valsComp1.add(new Entry((i+1),Float.parseFloat(dataListMonth.get(dataListMonth.size()-1-i).getDWJZ())));
             }
         }
 
@@ -399,7 +435,15 @@ public class ResultActivity extends MyBaseActivity{
         maxJzOfTwoWeek=0;
         minJzOfTwoWeek=Double.parseDouble(todayJzInfo.getDWJZ());
         maxJzOfMonth=0;
+        sevenDaysHasCounts=createStockMoney;
+        twoWeeksHasCounts=createStockMoney;
+        monthHasCounts=createStockMoney;
+        threeMonthHasCounts=createStockMoney;
         minJzOfMonth=Double.parseDouble(todayJzInfo.getDWJZ());
+        double sevenDaysNowMoney=createStockMoney;
+        double addedMoney=0;
+        double nowSevenDaysGetMoney=0;
+        double sevenDaysearnEdMoney=0;
         for(int i=0;i<dataListWeek.size();i++){
             if(MyUtils.isEmpty(dataListWeek.get(i).getJZZZL())){
                 continue;
@@ -407,6 +451,30 @@ public class ResultActivity extends MyBaseActivity{
             allSpeed+=Double.parseDouble(dataListWeek.get(i).getJZZZL());
             allDwJz+=Double.parseDouble(dataListWeek.get(i).getDWJZ());
             alLjJz+=Double.parseDouble(dataListWeek.get(i).getLJJZ());
+            double zzl = Double.parseDouble(dataListWeek.get(dataListWeek.size()-1-i).getJZZZL());
+            if(zzl<0){
+                addedMoney=Math.abs(lowAndAddedMoney*(zzl/0.1));
+            }else{
+                addedMoney= upAndAddMoney *(1-zzl);
+                if(addedMoney<=0){
+                    addedMoney=0;
+                }
+            }
+            if(sevenDaysNowMoney>0) {
+                //加仓钱赚的的钱
+                sevenDaysearnEdMoney += zzl * sevenDaysNowMoney / 100;
+                //加仓后的钱
+                sevenDaysNowMoney += addedMoney;
+                double earnPercent = sevenDaysearnEdMoney * 100 / sevenDaysNowMoney;
+                if(earnPercent>=getMoneyPercent){
+                    sevenDaysNowMoney=sevenDaysNowMoney*leavePercent;
+                    sevenDaysearnEdMoney=sevenDaysearnEdMoney*leavePercent;
+                    nowSevenDaysGetMoney+=sevenDaysearnEdMoney*(1-leavePercent);
+                }
+                if(addedMoney>0){
+                    sevenDaysHasCounts+=addedMoney;
+                }
+            }
         }
         threeDaysPjUpSpeed=threedDaysAllSpeed/3;
         sevenDaysPjUpSpeed=threedDaysAllSpeed/7;
@@ -417,6 +485,10 @@ public class ResultActivity extends MyBaseActivity{
         allSpeed=0;
         allDwJz=0;
         alLjJz=0;
+        double twoWeeksNowMoney=createStockMoney;
+        double twoWeeksEarnEdMoney=0;
+        double nowTwoWeeksGetMoney=0;
+        addedMoney=0;
         for(int i=0;i<dataListTwoWeek.size();i++){
             if(MyUtils.isEmpty(dataListTwoWeek.get(i).getJZZZL())){
                 continue;
@@ -452,6 +524,31 @@ public class ResultActivity extends MyBaseActivity{
                 //最近14天增长率总值
                 twoWeekAllSpeed += nowWeekJzL;
             }
+
+            double zzl = Double.parseDouble(dataListTwoWeek.get(dataListTwoWeek.size()-1-i).getJZZZL());
+            if(zzl<0){
+                addedMoney=Math.abs(lowAndAddedMoney*(zzl/0.1));
+            }else{
+                addedMoney= upAndAddMoney *(1-zzl);
+                if(addedMoney<=0){
+                    addedMoney=0;
+                }
+            }
+            if(twoWeeksNowMoney>0) {
+                //加仓钱赚的的钱
+                twoWeeksEarnEdMoney += zzl * twoWeeksNowMoney / 100;
+                //加仓后的钱
+                twoWeeksNowMoney += addedMoney;
+                double earnPercent = twoWeeksEarnEdMoney * 100 / twoWeeksNowMoney;
+                if(earnPercent>=getMoneyPercent){
+                    twoWeeksNowMoney=twoWeeksNowMoney*leavePercent;
+                    twoWeeksEarnEdMoney=twoWeeksEarnEdMoney*leavePercent;
+                    nowTwoWeeksGetMoney+=twoWeeksEarnEdMoney*(1-leavePercent);
+                }
+                if(addedMoney>0){
+                    twoWeeksHasCounts+=addedMoney;
+                }
+            }
         }
         speedTwoWeek=allSpeed/dataListTwoWeek.size();
         pjdwOfTwoWeek=allDwJz/dataListTwoWeek.size();
@@ -459,6 +556,11 @@ public class ResultActivity extends MyBaseActivity{
         allSpeed=0;
         allDwJz=0;
         alLjJz=0;
+
+        double monthNowMoney=createStockMoney;
+        double monthEarnEdMoney=0;
+        double monthGetMoney=0;
+        addedMoney=0;
         for(int i=0;i<dataListMonth.size();i++){
             allSpeed+=Double.parseDouble(dataListMonth.get(i).getJZZZL());
             allDwJz+=Double.parseDouble(dataListMonth.get(i).getDWJZ());
@@ -472,7 +574,71 @@ public class ResultActivity extends MyBaseActivity{
                     minJzOfMonth=nowWeekJz;
                 }
             }
+
+            double zzl = Double.parseDouble(dataListMonth.get(dataListMonth.size()-1-i).getJZZZL());
+            if(zzl<0){
+                addedMoney=Math.abs(lowAndAddedMoney*(zzl/0.1));
+            }else{
+                addedMoney= upAndAddMoney *(1-zzl);
+                if(addedMoney<=0){
+                    addedMoney=0;
+                }
+            }
+
+            //计算做T的情况收益如何
+            if(zzl<0){
+                //做T开始
+                AddedMoneyInfo addedMoneyInfo=new AddedMoneyInfo();
+                addedMoneyInfo.setAddedMoney(addedMoney);
+                addedMoneyInfo.setNowDayStr(dataListMonth.get(dataListMonth.size()-1).getFSRQ());
+                addedMoneyInfo.setNowJz(Double.parseDouble(dataListMonth.get(dataListMonth.size()-1-i).getDWJZ()));
+                addedMoneyInfo.setNowHasCount(new BigDecimal(addedMoney)
+                        .divide(new BigDecimal(addedMoneyInfo.getNowJz()),2,BigDecimal.ROUND_HALF_UP)
+                        .doubleValue());
+                tAddedAllMoney+=addedMoney;
+                tDaysAddedMoney.add(addedMoneyInfo);
+            }else{
+                List<AddedMoneyInfo> clearedList=new ArrayList<>();
+                for(int j=0;j<tDaysAddedMoney.size();j++) {
+                    double tDwjz=tDaysAddedMoney.get(j).getNowJz();
+                    double nowdwJz = Double.parseDouble(dataListMonth.get(dataListMonth.size() - 1 - i).getDWJZ());
+                    if(tDwjz>nowdwJz){
+                        continue;
+                    }
+                    double percent = (nowdwJz - tDwjz) * 100 / nowdwJz;
+                    if(percent/2.5>=1){
+                     //全T出去
+                      tEarnedMoney+=tDaysAddedMoney.get(j).getAddedMoney()*percent/100;
+                     clearedList.add(tDaysAddedMoney.get(j));
+                    }else if(percent/1.5>=1) {
+                     //T一半出去
+                      tEarnedMoney+=tDaysAddedMoney.get(j).getAddedMoney()/2*percent/100;
+                      tDaysAddedMoney.get(j).setAddedMoney(tDaysAddedMoney.get(j).getAddedMoney()/2);
+                      tDaysAddedMoney.get(j).setNowHasCount(tDaysAddedMoney.get(j).getNowHasCount()/2);
+                    }
+                }
+                tDaysAddedMoney.removeAll(clearedList);
+            }
+
+
+            if(monthNowMoney>0) {
+                //加仓钱赚的的钱
+                monthEarnEdMoney += zzl * monthNowMoney / 100;
+                //加仓后的钱
+                monthNowMoney += addedMoney;
+                double earnPercent = monthEarnEdMoney * 100 / twoWeeksNowMoney;
+                if(earnPercent>=getMoneyPercent){
+                    monthNowMoney=monthNowMoney*leavePercent;
+                    monthEarnEdMoney=monthEarnEdMoney*leavePercent;
+                    monthGetMoney+=monthEarnEdMoney*(1-leavePercent);
+                }
+                if(addedMoney>0){
+                    monthHasCounts+=addedMoney;
+                }
+            }
         }
+
+
 
         maxUpPercentOfWeek= new BigDecimal(Math.abs(maxJzOfWeek-minJzOfWeek)*100)
                 .divide(new BigDecimal(minJzOfWeek),2,BigDecimal.ROUND_HALF_UP)
@@ -505,6 +671,12 @@ public class ResultActivity extends MyBaseActivity{
         allSpeed=0;
         allDwJz=0;
         alLjJz=0;
+
+        double threeMonthNowMoney=createStockMoney;
+        double threeMonthEarnEdMoney=0;
+        double threeMonthGetMoney=0;
+        addedMoney=0;
+
         for(int i=0;i<dataListThreeMonth.size();i++){
             if(MyUtils.isEmpty(dataListThreeMonth.get(i).getJZZZL())){
                 continue;
@@ -512,6 +684,33 @@ public class ResultActivity extends MyBaseActivity{
             allSpeed+=Double.parseDouble(dataListThreeMonth.get(i).getJZZZL());
             allDwJz+=Double.parseDouble(dataListThreeMonth.get(i).getDWJZ());
             alLjJz+=Double.parseDouble(dataListThreeMonth.get(i).getLJJZ());
+
+            double zzl = Double.parseDouble(dataListThreeMonth.get(dataListThreeMonth.size()-1-i).getJZZZL());
+            if(zzl<0){
+                addedMoney=Math.abs(lowAndAddedMoney*(zzl/0.1));
+            }else{
+                addedMoney= upAndAddMoney *(1-zzl);
+                if(addedMoney<=0){
+                    addedMoney=0;
+                }
+            }
+            if(threeMonthNowMoney>0) {
+                //加仓钱赚的的钱
+                threeMonthEarnEdMoney += zzl * threeMonthNowMoney / 100;
+                //加仓后的钱
+                threeMonthNowMoney += addedMoney;
+                double earnPercent = threeMonthEarnEdMoney * 100 / threeMonthNowMoney;
+                if(earnPercent>=getMoneyPercent){
+                    threeMonthNowMoney=threeMonthNowMoney*leavePercent;
+                    threeMonthEarnEdMoney=threeMonthEarnEdMoney*leavePercent;
+                    threeMonthGetMoney+=threeMonthEarnEdMoney*(1-leavePercent);
+                }
+
+                if(addedMoney>0){
+                    threeMonthHasCounts+=addedMoney;
+                }
+            }
+
         }
         speedThreeMonth=allSpeed/dataListThreeMonth.size();
         pjdwOfThreeMonth=allDwJz/dataListThreeMonth.size();
@@ -852,10 +1051,24 @@ public class ResultActivity extends MyBaseActivity{
         }else{
             result="当前建议等待时机买入，当前可卖出仓位："+Math.abs(saleCang/2)+"层";
         }
-        buffer.append("<br><font color='#000000' size='90px'>操作建议：</font><br><br><font color='#24a233' size='50px' >"+msDetails+"<br><br>"+result+"</font><br><br>");
-        buffer.append(result);
+        buffer.append("<br><font color='#000000' size='90px'>操作建议：</font><br><br><font color='#24a233' size='50px' ><br>"+msDetails+"<br><br>"+result+"</font><br><br>");
+        if(todayNeedAdd>0) {
+            buffer.append("<br>根据公式，今日该基金应该加仓" + myformat.format(todayNeedAdd) + "元<br>");
+        }else{
+            buffer.append("<br>根据公式，今日该基金无需进行操作<br>");
+        }
         tvResult.setText(HtmlStrUtils.getHtmlStr(this, tvResult, buffer.toString()));
-        tvDetails.setText(HtmlStrUtils.getHtmlStr(this,tvDetails,details));
+        StringBuffer otherWayData=new StringBuffer();
+        otherWayData.append("<font color='#f43633' size='60px'><br><br>一周买入卖出后预计回报："+myformat.format(sevenDaysearnEdMoney+nowSevenDaysGetMoney)+"元，剩余持仓金额："+myformat.format(sevenDaysNowMoney)+"元。总计投入："+myformat.format(sevenDaysHasCounts)+"<br>");
+        otherWayData.append("<br>两周买入卖出后预计回报："+myformat.format(twoWeeksEarnEdMoney+nowTwoWeeksGetMoney)+"元，剩余持仓金额："+myformat.format(twoWeeksNowMoney)+"元总计投入："+myformat.format(twoWeeksHasCounts)+"。<br>");
+        otherWayData.append("<br>一月买入卖出后预计回报："+myformat.format(monthEarnEdMoney+monthGetMoney)+"元，剩余持仓金额："+myformat.format(monthNowMoney)+"元。总计投入："+myformat.format(monthHasCounts)+"<br>");
+        otherWayData.append("<br>三个月买入卖出后预计回报："+myformat.format(threeMonthEarnEdMoney+threeMonthGetMoney)+"元，剩余持仓金额："+myformat.format(threeMonthNowMoney)+"元。总计投入："+myformat.format(threeMonthHasCounts)+"<br></font>");
+        double leaveTdaysMoney=0;
+        for(int i=0;i<tDaysAddedMoney.size();i++){
+            leaveTdaysMoney+=tDaysAddedMoney.get(i).getAddedMoney();
+        }
+        otherWayData.append("<br>一个月做T后预计回报："+myformat.format(tEarnedMoney)+"元，总计投入："+myformat.format(tAddedAllMoney)+"元，剩余持仓T本金："+myformat.format(leaveTdaysMoney)+"元<br></font>");
+        tvDetails.setText(HtmlStrUtils.getHtmlStr(this,tvDetails,details+"<br><br>"+otherWayData.toString()));
     }
 
 

@@ -9,6 +9,7 @@
         android:layout_height="65dp"
         >
         <TextView
+            android:id="@+id/change_get_moneyPercent"
             android:textSize="18sp"
             android:textColor="@color/black"
             android:layout_width="wrap_content"
